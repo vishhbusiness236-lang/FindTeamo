@@ -485,7 +485,15 @@ export async function getMessages(userId: string, conversationId: string): Promi
   return data || [];
 }
 
-export async function sendMessage(userId: string, conversationId: string, toUserId: string, content: string): Promise<boolean> {
+// UPDATED: now accepts optional media_url + media_type for image/voice messages
+export async function sendMessage(
+  userId: string,
+  conversationId: string,
+  toUserId: string,
+  content: string | null,
+  mediaUrl: string | null = null,
+  mediaType: "text" | "image" | "voice" = "text"
+): Promise<boolean> {
   const { error } = await supabase
     .from("messages")
     .insert({
@@ -493,6 +501,8 @@ export async function sendMessage(userId: string, conversationId: string, toUser
       from_user_id: userId,
       to_user_id: toUserId,
       content,
+      media_url: mediaUrl,
+      media_type: mediaType,
     });
 
   if (error) {
@@ -537,4 +547,22 @@ export async function getConversations(userId: string): Promise<any[]> {
   }, [] as any[]);
 
   return grouped;
+}
+
+// NEW: uploads an image or voice recording to Supabase Storage and returns its public URL
+export async function uploadChatMedia(
+  conversationId: string,
+  file: File | Blob,
+  fileName: string
+): Promise<string | null> {
+  const filePath = `${conversationId}/${Date.now()}_${fileName}`;
+  const { error } = await supabase.storage.from("chat-media").upload(filePath, file);
+
+  if (error) {
+    console.error("Error uploading chat media:", error.message);
+    return null;
+  }
+
+  const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
+  return data.publicUrl;
 }
