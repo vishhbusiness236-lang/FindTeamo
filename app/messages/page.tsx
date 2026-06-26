@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/use-auth";
 import { getConversations, getMessages, sendMessage, uploadChatMedia } from "@/lib/db";
 
-export default function MessagesPage() {
+function MessagesContent() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<any[]>([]);
@@ -238,5 +238,19 @@ export default function MessagesPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-white">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-slate-600">Loading messages...</div>
+        </div>
+      </main>
+    }>
+      <MessagesContent />
+    </Suspense>
   );
 }

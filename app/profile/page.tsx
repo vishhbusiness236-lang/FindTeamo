@@ -42,15 +42,16 @@ export default function ProfilePage() {
           setInterests(existingProfile.interests || []);
         } else {
           const newProfile = await createProfile(user.id, {
-            username: user.email?.split("@")[0] || "user" + Math.random().toString(36).substr(2, 9),
-            full_name: user.user_metadata?.full_name || null,
-            avatar_url: user.user_metadata?.avatar_url || null,
-            bio: null,
-            experience_level: null,
-            hours_per_week: null,
-            looking_for: null,
-            age: null,
-          });
+  username: user.email?.split("@")[0] || "user" + Math.random().toString(36).substr(2, 9),
+  full_name: user.user_metadata?.full_name || null,
+  avatar_url: user.user_metadata?.avatar_url || null,
+  bio: null,
+  experience_level: null,
+  hours_per_week: null,
+  looking_for: null,
+  age: null,
+  updated_at: new Date().toISOString(),
+});
 
           if (newProfile) {
             setProfile(newProfile);
