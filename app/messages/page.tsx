@@ -1,26 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/use-auth";
-import { getConversations, getMessages, sendMessage } from "@/lib/db";
-import type { ProfileWithDetails } from "@/lib/types";
+import { getConversations, getMessages, sendMessage, uploadChatMedia } from "@/lib/db";
 
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadConversations = async () => {
       if (!user) return;
       const data = await getConversations(user.id);
       setConversations(data);
-      if (data.length > 0) {
+
+      const fromUrl = searchParams.get("c");
+      if (fromUrl) {
+        setSelectedConv(fromUrl);
+      } else if (data.length > 0) {
         setSelectedConv(data[0].conversation_id);
       }
       setLoading(false);
@@ -37,16 +48,63 @@ export default function MessagesPage() {
     loadMessages();
   }, [selectedConv, user]);
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const selectedConversation = conversations.find(c => c.conversation_id === selectedConv);
+
   const handleSend = async () => {
     if (!user || !selectedConv || !newMessage.trim()) return;
     const otherUserId = conversations.find(c => c.conversation_id === selectedConv)?.other_user_id;
     if (!otherUserId) return;
     await sendMessage(user.id, selectedConv, otherUserId, newMessage);
-    setMessages([...messages, { content: newMessage, from_user_id: user.id, created_at: new Date().toISOString() }]);
+    setMessages([...messages, { content: newMessage, media_type: "text", from_user_id: user.id, created_at: new Date().toISOString() }]);
     setNewMessage("");
   };
 
-  const selectedConversation = conversations.find(c => c.conversation_id === selectedConv);
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !selectedConv) return;
+    const otherUserId = conversations.find(c => c.conversation_id === selectedConv)?.other_user_id;
+    if (!otherUserId) return;
+
+    const url = await uploadChatMedia(selectedConv, file, file.name);
+    if (!url) return;
+
+    await sendMessage(user.id, selectedConv, otherUserId, null, url, "image");
+    setMessages([...messages, { content: null, media_url: url, media_type: "image", from_user_id: user.id, created_at: new Date().toISOString() }]);
+    e.target.value = "";
+  };
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+    recorder.onstop = async () => {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      stream.getTracks().forEach(t => t.stop());
+
+      if (!user || !selectedConv) return;
+      const otherUserId = conversations.find(c => c.conversation_id === selectedConv)?.other_user_id;
+      if (!otherUserId) return;
+
+      const url = await uploadChatMedia(selectedConv, blob, "voice.webm");
+      if (!url) return;
+
+      await sendMessage(user.id, selectedConv, otherUserId, null, url, "voice");
+      setMessages(prev => [...prev, { content: null, media_url: url, media_type: "voice", from_user_id: user.id, created_at: new Date().toISOString() }]);
+    };
+    mediaRecorderRef.current = recorder;
+    recorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
 
   if (authLoading || loading) {
     return (
@@ -70,7 +128,6 @@ export default function MessagesPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
-          {/* Conversations List */}
           <div className="md:col-span-1 border border-slate-200 rounded-lg overflow-hidden">
             <div className="p-4 border-b border-slate-200">
               <h2 className="font-semibold text-slate-950">Messages</h2>
@@ -97,7 +154,7 @@ export default function MessagesPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-slate-950 truncate">{conv.other_user_name || 'Unknown'}</p>
-                        <p className="text-sm text-slate-600 truncate">{conv.last_message}</p>
+                        <p className="text-sm text-slate-600 truncate">{conv.last_message || 'Sent a photo/voice note'}</p>
                       </div>
                     </div>
                   </button>
@@ -106,7 +163,6 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* Message Thread */}
           <div className="md:col-span-3 border border-slate-200 rounded-lg flex flex-col">
             {selectedConversation ? (
               <>
@@ -122,26 +178,54 @@ export default function MessagesPage() {
                   </div>
                   <span className="font-medium text-slate-950">{selectedConversation.other_user_name || 'Unknown'}</span>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.map((msg, i) => (
                     <div key={i} className={`max-w-[70%] ${msg.from_user_id === user.id ? 'ml-auto' : ''}`}>
                       <div className={`rounded-lg px-4 py-2 ${msg.from_user_id === user.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-900'}`}>
-                        {msg.content}
+                        {msg.media_type === "image" && msg.media_url && (
+                          <img src={msg.media_url} alt="" className="rounded-md max-w-[200px]" />
+                        )}
+                        {msg.media_type === "voice" && msg.media_url && (
+                          <audio controls src={msg.media_url} className="w-48" />
+                        )}
+                        {(!msg.media_type || msg.media_type === "text") && msg.content}
                       </div>
                     </div>
                   ))}
+                  <div ref={bottomRef} />
                 </div>
-                
-                <div className="p-4 border-t border-slate-200 flex gap-2">
+
+                <div className="p-4 border-t border-slate-200 flex items-center gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-2xl text-slate-500 px-2"
+                    type="button"
+                  >
+                    +
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleImagePick}
+                  />
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                     placeholder="Type a message..."
                     className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    type="button"
+                    className={`text-xl px-2 ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-500'}`}
+                  >
+                    🎤
+                  </button>
                   <button onClick={handleSend} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">Send</button>
                 </div>
               </>
