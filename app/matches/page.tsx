@@ -3,15 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import type { ProfileWithDetails } from "@/lib/types";
-import { getMatches, getOrCreateConversation } from "@/lib/db";
+import { getMatches } from "@/lib/db";
 import { useAuth } from "@/lib/use-auth";
 import { ProfileCardSkeleton } from "@/components/ui/skeleton";
 
 export default function MatchesPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [matches, setMatches] = useState<ProfileWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +31,6 @@ export default function MatchesPage() {
 
     initMatches();
   }, [user]);
-
-  const handleMessage = async (otherUserId: string) => {
-    if (!user) return;
-    const conversationId = await getOrCreateConversation(user.id, otherUserId);
-    if (conversationId) {
-      router.push(`/messages?c=${conversationId}`);
-    }
-  };
 
   if (authLoading || loading) {
     return (
@@ -192,12 +182,9 @@ export default function MatchesPage() {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => handleMessage(match.id)}
-                    className="mt-4 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-                  >
-                    💬 Message
-                  </button>
+                  <div className="mt-4 w-full rounded-md bg-green-50 px-4 py-2 text-sm font-medium text-green-700 text-center">
+                    ✓ It&apos;s a Match!
+                  </div>
                 </div>
               </div>
             ))}

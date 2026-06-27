@@ -70,7 +70,7 @@ export default function DiscoverPage() {
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
     await likeProfile(user.id, profile.id);
-    router.push("/matches"); // TODO: point straight to chat once a /messages/[id] route exists
+    router.push("/matches");
   };
 
   const handleSkip = async () => {
