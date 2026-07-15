@@ -3,10 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import { getProfileWithDetails, createProfile, uploadAvatar } from "@/lib/db";
 import { ProfileEdit } from "@/components/profile-edit";
+import { Avatar } from "@/components/ui";
 import { useAuth } from "@/lib/use-auth";
 import type { Profile, Skill, Goal, Interest } from "@/lib/types";
 import { ProfileCardSkeleton } from "@/components/ui/skeleton";
-import Image from "next/image";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -180,15 +180,13 @@ export default function ProfilePage() {
         {/* Avatar Upload Section */}
         <div className="mb-8 flex flex-col items-center">
           <div className="relative mb-3">
-            <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-              {avatarSrc ? (
-               <Image src={avatarSrc} alt="Avatar" fill sizes="96px" className="object-cover rounded-full" />
-              ) : (
-                <span className="text-2xl font-semibold text-slate-600">
-                  {profile.full_name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "👤"}
-                </span>
-              )}
-            </div>
+            <Avatar
+              src={avatarSrc}
+              alt="Avatar"
+              name={profile.full_name || profile.username || "User"}
+              size="xl"
+              className="h-24 w-24"
+            />
             <input
               type="file"
               ref={fileInputRef}
@@ -199,11 +197,11 @@ export default function ProfilePage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute -bottom-1 -right-1 rounded-full bg-blue-600 text-white p-2 hover:bg-blue-700 disabled:opacity-50"
+              className="absolute -bottom-1 -right-1 rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50"
               title="Change avatar"
             >
               {uploadingAvatar ? (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>

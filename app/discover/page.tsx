@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, AlertTriangle, PartyPopper } from "lucide-react";
 import type { ProfileWithDetails } from "@/lib/types";
-import { getDiscoveryProfiles, getProfileWithDetails, likeProfile, rejectProfile, calculateMatchScore, addFavorite, removeFavorite, getFavorites } from "@/lib/db";
+import { getDiscoveryProfiles, getProfileWithDetails, likeProfile, rejectProfile, calculateMatchScore, addFavorite, removeFavorite, getFavorites, getOrCreateConversation } from "@/lib/db";
 import { useAuth } from "@/lib/use-auth";
 import { ProfileCardSkeleton } from "@/components/ui/skeleton";
 import { ProfileCard } from "@/components/project-card";
@@ -42,7 +43,8 @@ export default function DiscoverPage() {
         } else {
           setProfiles(discoveryProfiles);
         }
-      } catch {
+      } catch (err) {
+        console.error("Discovery error:", err);
         setError("Failed to load profiles. Please try again.");
       } finally {
         setLoading(false);
@@ -57,33 +59,52 @@ export default function DiscoverPage() {
   const handleFavorite = async () => {
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
-    if (isFavorited(profile.id)) {
-      await removeFavorite(user.id, profile.id);
-      setFavorites(favorites.filter(id => id !== profile.id));
-    } else {
-      await addFavorite(user.id, profile.id);
-      setFavorites([...favorites, profile.id]);
+    try {
+      if (isFavorited(profile.id)) {
+        await removeFavorite(user.id, profile.id);
+        setFavorites(favorites.filter(id => id !== profile.id));
+      } else {
+        await addFavorite(user.id, profile.id);
+        setFavorites([...favorites, profile.id]);
+      }
+    } catch (err) {
+      console.error("Favorite error:", err);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!user || currentIndex >= profiles.length) return;
+    const profile = profiles[currentIndex];
+    try {
+      await rejectProfile(user.id, profile.id);
+      setCurrentIndex((prev) => prev + 1);
+    } catch (err) {
+      console.error("Skip error:", err);
     }
   };
 
   const handleMessage = async () => {
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
-    await likeProfile(user.id, profile.id);
-    router.push("/matches");
-  };
-
-  const handleSkip = async () => {
-    if (!user || currentIndex >= profiles.length) return;
-    const profile = profiles[currentIndex];
-    await rejectProfile(user.id, profile.id);
-    setCurrentIndex((prev) => prev + 1);
+    try {
+      await likeProfile(user.id, profile.id);
+      const conversationId = await getOrCreateConversation(user.id, profile.id);
+      if (conversationId) {
+        router.push(`/messages?c=${conversationId}`);
+      } else {
+        setCurrentIndex((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.error("Message error:", err);
+    }
   };
 
   if (authLoading || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white">
-        <ProfileCardSkeleton />
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-white">
+        <div className="flex flex-col items-center gap-3">
+          <ProfileCardSkeleton />
+        </div>
       </main>
     );
   }
@@ -94,27 +115,22 @@ export default function DiscoverPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-white">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-            <Link href="/dashboard" className="text-2xl font-bold text-slate-950 hover:text-slate-700">
-              FindTeamo
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Back
+      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
+            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-70 transition">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
+              <span className="text-xl sm:text-2xl font-bold text-slate-950">Discover</span>
             </Link>
           </div>
         </header>
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="text-6xl mb-4">⚠️</div>
-          <h1 className="text-3xl font-bold text-slate-950">Something went wrong</h1>
-          <p className="mt-2 text-slate-600">{error}</p>
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+          <h1 className="text-3xl font-bold text-slate-950 text-center">Something went wrong</h1>
+          <p className="mt-2 text-slate-600 text-center max-w-md">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-6 rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+            className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 hover:shadow-lg"
           >
             Try Again
           </button>
@@ -123,62 +139,31 @@ export default function DiscoverPage() {
     );
   }
 
-  if (profiles.length === 0) {
+  if (profiles.length === 0 || currentIndex >= profiles.length) {
     return (
-      <main className="min-h-screen bg-white">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-            <Link href="/dashboard" className="text-2xl font-bold text-slate-950 hover:text-slate-700">
-              FindTeamo
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Back
+      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
+            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-70 transition">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
+              <span className="text-xl sm:text-2xl font-bold text-slate-950">Discover</span>
             </Link>
           </div>
         </header>
 
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="text-6xl mb-4">🎉</div>
-          <h1 className="text-3xl font-bold text-slate-950">No more profiles!</h1>
-          <p className="mt-2 text-slate-600">You&apos;ve viewed all available profiles.</p>
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <PartyPopper className="h-12 w-12 text-blue-500 mb-4" />
+          <h1 className="text-3xl font-bold text-slate-950 text-center">
+            {profiles.length === 0 ? "No profiles yet" : "All caught up!"}
+          </h1>
+          <p className="mt-2 text-slate-600 text-center max-w-md">
+            {profiles.length === 0
+              ? "Check back soon for more teammates to discover."
+              : "You've reviewed all available profiles. More will appear soon!"}
+          </p>
           <Link
             href="/matches"
-            className="mt-6 rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-          >
-            Check Your Matches
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  if (currentIndex >= profiles.length) {
-    return (
-      <main className="min-h-screen bg-white">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-            <Link href="/dashboard" className="text-2xl font-bold text-slate-950 hover:text-slate-700">
-              FindTeamo
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Back
-            </Link>
-          </div>
-        </header>
-
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="text-6xl mb-4">🎉</div>
-          <h1 className="text-3xl font-bold text-slate-950">All caught up!</h1>
-          <p className="mt-2 text-slate-600">You&apos;ve reviewed all profiles. Check back later for more!</p>
-          <Link
-            href="/matches"
-            className="mt-6 rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+            className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 hover:shadow-lg"
           >
             Check Your Matches
           </Link>
@@ -191,46 +176,48 @@ export default function DiscoverPage() {
   const progress = ((currentIndex + 1) / profiles.length) * 100;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white to-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="text-2xl font-bold text-slate-950 hover:text-slate-700">
-            FindTeamo
-          </Link>
-          <div className="flex gap-4">
-            <Link
-              href="/matches"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Matches
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between mb-4">
+            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-70 transition">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
+              <span className="text-xl sm:text-2xl font-bold text-slate-950">Discover</span>
             </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Dashboard
-            </Link>
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+              <span>{currentIndex + 1}</span>
+              <span className="text-slate-400">/</span>
+              <span>{profiles.length}</span>
+            </div>
           </div>
-        </div>
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="h-1 w-full bg-slate-200">
-            <div className="h-full bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
+          {/* Progress Bar */}
+          <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-6 py-12 flex flex-col items-center">
-        <ProfileCard
-          key={profile.id}
-          profile={profile}
-          onMessage={handleMessage}
-          onSkip={handleSkip}
-          onToggleFavorite={handleFavorite}
-          isFavoriteInitial={isFavorited(profile.id)}
-        />
+      {/* Main Content */}
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col items-center">
+        {/* Profile Card */}
+        <div className="w-full max-w-md mb-8">
+          <ProfileCard
+            key={`${profile.id}-${currentIndex}`}
+            profile={profile}
+            onMessage={handleMessage}
+            onSkip={handleSkip}
+            onToggleFavorite={handleFavorite}
+            isFavoriteInitial={isFavorited(profile.id)}
+          />
+        </div>
 
-        <div className="mt-6 text-center text-sm text-slate-600">
-          {currentIndex + 1} of {profiles.length}
+        {/* Info Text */}
+        <div className="mt-2 text-center text-xs text-slate-500">
+          <p>Swipe through profiles to find your perfect teammate</p>
         </div>
       </div>
     </main>

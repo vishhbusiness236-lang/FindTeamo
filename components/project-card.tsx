@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Heart } from "lucide-react";
+import { Avatar } from "@/components/ui";
 import type { ProfileWithDetails } from "@/lib/types";
 
 type ProfileCardProps = {
@@ -11,12 +13,12 @@ type ProfileCardProps = {
   isFavoriteInitial?: boolean;
 };
 
-export function ProfileCard({ 
-  profile, 
-  onMessage, 
-  onSkip, 
-  onToggleFavorite, 
-  isFavoriteInitial = false 
+export function ProfileCard({
+  profile,
+  onMessage,
+  onSkip,
+  onToggleFavorite,
+  isFavoriteInitial = false,
 }: ProfileCardProps) {
   const [isFavorite, setIsFavorite] = useState(isFavoriteInitial);
 
@@ -26,82 +28,56 @@ export function ProfileCard({
   };
 
   return (
-    <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden p-6 space-y-6 relative">
-      
-      {/* Top Section: Circular Avatar, Name & Favorite Star Icon */}
-      <div className="flex items-center justify-between border-b border-slate-50 pb-4">
-        <div className="flex items-center space-x-4">
-          {/* Circular Profile Image */}
-          <div className="w-16 h-16 rounded-full bg-purple-600 text-white font-bold text-xl flex items-center justify-center overflow-hidden shadow-inner border border-slate-100 flex-shrink-0">
-            {profile.avatar_url ? (
-              <img 
-                src={profile.avatar_url} 
-                alt={profile.full_name || profile.username} 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              (profile.full_name || profile.username || "U").substring(0, 2).toUpperCase()
-            )}
-          </div>
-          
-          {/* Name & Match Percentage */}
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 capitalize leading-tight">
+    <div className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_-24px_rgba(37,99,235,0.35)]">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
+        <div className="flex items-center gap-4">
+          <Avatar
+            src={profile.avatar_url}
+            alt={profile.full_name || profile.username || "User"}
+            name={profile.full_name || profile.username || "User"}
+            size="lg"
+          />
+
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold capitalize text-slate-950">
               {profile.full_name || profile.username || "User"}
             </h2>
-            <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
+            <div className="mt-2 inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
               {profile.matchScore ?? 0}% Match
-            </span>
+            </div>
           </div>
         </div>
 
-        {/* Favorite Star Button - Near Image/Name (Top Right) */}
-        <button 
+        <button
           onClick={handleFavoriteClick}
-          className="p-2 rounded-full hover:bg-slate-50 transition active:scale-95 group"
+          className="rounded-full border border-slate-200 bg-white p-2.5 text-slate-400 transition hover:bg-slate-50 hover:text-amber-500 active:scale-95"
           aria-label="Toggle Favorite"
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 24 24" 
-            fill={isFavorite ? "#eab308" : "none"} 
-            stroke={isFavorite ? "#eab308" : "#94a3b8"} 
-            strokeWidth="2" 
-            className="w-7 h-7 transition-colors group-hover:stroke-yellow-500"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499c.151-.326.621-.326.772 0l2.034 4.397 4.72.49c.358.037.502.483.232.727l-3.528 3.197.97 4.646c.074.354-.314.636-.622.454l-4.14-2.42-4.14 2.42c-.308.182-.696-.1-.621-.454l.97-4.646-3.528-3.197c-.27-.244-.126-.69.232-.727l4.72-.49 2.034-4.397z" />
-          </svg>
+          <Heart className={`h-5 w-5 transition-all ${isFavorite ? "fill-amber-400 text-amber-500" : "text-slate-400"}`} />
         </button>
       </div>
 
-      {/* Bio */}
-      {profile.bio && (
-        <p className="text-sm text-slate-600 leading-relaxed">
-          {profile.bio}
-        </p>
-      )}
+      {profile.bio && <p className="mt-5 text-sm leading-6 text-slate-600">{profile.bio}</p>}
 
-      {/* Skills */}
       {profile.skills && profile.skills.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Skills</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-5 space-y-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Skills</h3>
+          <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill) => (
-              <span key={skill.id} className="px-3 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200">
-                {skill.skill_name} <span className="text-slate-400 font-normal text-[10px]">({skill.proficiency})</span>
+              <span key={skill.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+                {skill.skill_name}
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Goals */}
       {profile.goals && profile.goals.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Goals</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-5 space-y-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Goals</h3>
+          <div className="flex flex-wrap gap-2">
             {profile.goals.map((goal) => (
-              <span key={goal.id} className="px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+              <span key={goal.id} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                 {goal.goal_name}
               </span>
             ))}
@@ -109,13 +85,12 @@ export function ProfileCard({
         </div>
       )}
 
-      {/* Interests */}
       {profile.interests && profile.interests.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Interests</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-5 space-y-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Interests</h3>
+          <div className="flex flex-wrap gap-2">
             {profile.interests.map((interest) => (
-              <span key={interest.id} className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+              <span key={interest.id} className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                 {interest.interest_name}
               </span>
             ))}
@@ -123,22 +98,20 @@ export function ProfileCard({
         </div>
       )}
 
-      {/* Bottom Actions: Exactly 2 Buttons (Skip and Message) */}
-      <div className="grid grid-cols-2 gap-4 pt-2">
+      <div className="mt-6 grid grid-cols-2 gap-3">
         <button
           onClick={onSkip}
-          className="w-full py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 transition active:scale-[0.98]"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 active:scale-[0.98]"
         >
           Skip
         </button>
         <button
           onClick={onMessage}
-          className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition shadow-md shadow-blue-100 active:scale-[0.98]"
+          className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-blue-100 transition hover:bg-blue-700 active:scale-[0.98]"
         >
           Message
         </button>
       </div>
-
     </div>
   );
 }

@@ -145,7 +145,6 @@ export async function getProfileWithDetails(userId: string): Promise<ProfileWith
 }
 
 export async function createProfile(userId: string, profile: Omit<Profile, 'id' | 'created_at'>) {
-  // age ko alag nikal do taaki database me na jaye aur error na aaye
   const { age, ...profileWithoutAge } = profile as any;
 
   const { data, error } = await supabase
@@ -162,7 +161,6 @@ export async function createProfile(userId: string, profile: Omit<Profile, 'id' 
 }
 
 export async function updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
-  // age ko updates se bhi alag kar diya
   const { age, ...updatesWithoutAge } = updates;
 
   const { data, error } = await supabase
@@ -181,8 +179,6 @@ export async function updateProfile(userId: string, updates: Partial<Profile>): 
   }
   return data;
 }
-
-
 
 // Skills operations
 export async function addSkill(profileId: string, skillName: string, proficiency: 'learning' | 'intermediate' | 'expert'): Promise<Skill | null> {
@@ -269,7 +265,7 @@ export async function deleteGoal(goalId: number): Promise<boolean> {
 }
 
 // ==========================================
-// Connections/Matching operations (FIXED)
+// Connections/Matching operations
 // ==========================================
 
 export async function likeProfile(fromUserId: string, toUserId: string): Promise<Connection | null> {
@@ -288,10 +284,10 @@ export async function likeProfile(fromUserId: string, toUserId: string): Promise
     .from("connections")
     .upsert(
       [
-        { 
-          from_user_id: fromUserId, 
-          to_user_id: toUserId, 
-          status: 'liked' 
+        {
+          from_user_id: fromUserId,
+          to_user_id: toUserId,
+          status: 'liked'
         }
       ],
       { onConflict: 'from_user_id,to_user_id' }
@@ -319,15 +315,15 @@ export async function rejectProfile(fromUserId: string, toUserId: string): Promi
   }
 
   const { data, error } = await supabase
-    .from("connections") 
+    .from("connections")
     .upsert(
       [
-        { 
-          from_user_id: fromUserId, 
-          to_user_id: toUserId, 
-          status: "rejected" 
+        {
+          from_user_id: fromUserId,
+          to_user_id: toUserId,
+          status: "rejected"
         }
-      ], 
+      ],
       { onConflict: 'from_user_id,to_user_id' }
     )
     .select()
@@ -433,48 +429,66 @@ export async function getFavorites(userId: string): Promise<ProfileWithDetails[]
 
 // Messaging functions
 export async function getOrCreateConversation(userId: string, otherUserId: string): Promise<string | null> {
-  const { data: existing } = await supabase
-    .from("messages")
-    .select("conversation_id")
-    .or(`and(from_user_id.eq.${userId},to_user_id.eq.${otherUserId}),and(from_user_id.eq.${otherUserId},to_user_id.eq.${userId})`)
-    .limit(1);
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-  if (existing && existing.length > 0) {
-    return existing[0].conversation_id;
+    if (sessionError) {
+      console.error("Error getting session:", sessionError.message);
+      return null;
+    }
+
+    if (!session?.access_token) {
+      console.error("No active session — user is not logged in. Please log in again.");
+      return null;
+    }
+
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId, otherUserId }),
+    });
+
+    const rawText = await response.text();
+    let data: any = {};
+
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseErr) {
+        console.error(
+          "Non-JSON response from /api/conversations. Status:",
+          response.status,
+          "Body:",
+          rawText
+        );
+        return null;
+      }
+    }
+
+    if (!response.ok) {
+      console.error(
+        "Error creating conversation. Status:",
+        response.status,
+        "Details:",
+        data
+      );
+      return null;
+    }
+
+    return data.conversationId ?? null;
+  } catch (error) {
+    console.error("Unexpected error in getOrCreateConversation:", error);
+    return null;
   }
-
-  const { data: conv, error } = await supabase
-    .from("conversations")
-    .insert({})
-    .select()
-    .single();
-
-  if (error || !conv) return null;
-
-  await Promise.all([
-    supabase.from("messages").insert({
-      conversation_id: conv.id,
-      from_user_id: userId,
-      to_user_id: otherUserId,
-      content: "Conversation started!",
-      read: true,
-    }),
-    supabase.from("messages").insert({
-      conversation_id: conv.id,
-      from_user_id: otherUserId,
-      to_user_id: userId,
-      content: "Say hello!",
-      read: false,
-    }),
-  ]);
-
-  return conv.id;
 }
 
-export async function getMessages(userId: string, conversationId: string): Promise<any[]> {
+export async function getMessages(conversationId: string): Promise<any[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select(`*, from_profile:profiles!messages_from_user_id_fkey(full_name, avatar_url), to_profile:profiles!messages_to_user_id_fkey(full_name, avatar_url)`)
+    .select(`*, from_profile:profiles!messages_from_user_id_fkey(id, full_name, avatar_url), to_profile:profiles!messages_to_user_id_fkey(id, full_name, avatar_url)`)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -482,10 +496,10 @@ export async function getMessages(userId: string, conversationId: string): Promi
     console.error("Error fetching messages:", error.message);
     return [];
   }
+
   return data || [];
 }
 
-// UPDATED: now accepts optional media_url + media_type for image/voice messages
 export async function sendMessage(
   userId: string,
   conversationId: string,
@@ -494,28 +508,28 @@ export async function sendMessage(
   mediaUrl: string | null = null,
   mediaType: "text" | "image" | "voice" = "text"
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      from_user_id: userId,
-      to_user_id: toUserId,
-      content,
-      media_url: mediaUrl,
-      media_type: mediaType,
-    });
+  const { error } = await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    from_user_id: userId,
+    to_user_id: toUserId,
+    content,
+    media_url: mediaUrl,
+    media_type: mediaType,
+    read: false,
+  });
 
   if (error) {
     console.error("Error sending message:", error.message);
     return false;
   }
+
   return true;
 }
 
 export async function getConversations(userId: string): Promise<any[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select(`conversation_id, created_at, read, content, from_user_id, to_user_id,
+    .select(`conversation_id, created_at, read, content, media_type, media_url, from_user_id, to_user_id,
       from_profile:profiles!messages_from_user_id_fkey(id, full_name, avatar_url),
       to_profile:profiles!messages_to_user_id_fkey(id, full_name, avatar_url)`)
     .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
@@ -526,37 +540,51 @@ export async function getConversations(userId: string): Promise<any[]> {
     return [];
   }
 
-  const grouped = (data || []).reduce((acc: any[], msg: any) => {
+  const grouped = new Map<string, any>();
+
+  for (const msg of data || []) {
     const isSender = msg.from_user_id === userId;
-    const other = isSender ? msg.to_profile : msg.from_profile;
-    const existing = acc.find((c: any) => c.conversation_id === msg.conversation_id);
+    const otherProfile = (isSender ? msg.to_profile : msg.from_profile) as { id?: string; full_name?: string; username?: string; avatar_url?: string } | null;
+    const existing = grouped.get(msg.conversation_id);
+
     if (!existing) {
-      acc.push({
+      const preview = msg.media_type === "image"
+        ? "📷 Photo"
+        : msg.media_type === "voice"
+          ? "🎤 Voice message"
+          : msg.content || "New message";
+
+      grouped.set(msg.conversation_id, {
         conversation_id: msg.conversation_id,
-        other_user_id: other?.id,
-        other_user_name: other?.full_name,
-        other_user_avatar: other?.avatar_url,
-        last_message: msg.content,
+        other_user_id: otherProfile?.id,
+        other_user_name: otherProfile?.full_name || otherProfile?.username || "Unknown",
+        other_user_avatar: otherProfile?.avatar_url,
+        last_message: preview,
         last_message_at: msg.created_at,
         unread_count: !isSender && msg.read === false ? 1 : 0,
       });
-    } else if (!isSender && msg.read === false) {
+      continue;
+    }
+
+    if (!isSender && msg.read === false) {
       existing.unread_count += 1;
     }
-    return acc;
-  }, [] as any[]);
+  }
 
-  return grouped;
+  return Array.from(grouped.values()).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 }
 
-// NEW: uploads an image or voice recording to Supabase Storage and returns its public URL
 export async function uploadChatMedia(
   conversationId: string,
   file: File | Blob,
   fileName: string
 ): Promise<string | null> {
-  const filePath = `${conversationId}/${Date.now()}_${fileName}`;
-  const { error } = await supabase.storage.from("chat-media").upload(filePath, file);
+  const normalizedName = fileName.replace(/\s+/g, "_");
+  const filePath = `${conversationId}/${Date.now()}_${normalizedName}`;
+  const { error } = await supabase.storage.from("chat-media").upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
 
   if (error) {
     console.error("Error uploading chat media:", error.message);
