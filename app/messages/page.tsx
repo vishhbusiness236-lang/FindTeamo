@@ -9,6 +9,39 @@ import { Avatar } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { MessageCircle, Paperclip, Send, Mic, Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
 
+function AudioPlayer({ src }: { src: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const fixDuration = () => {
+      if (audio.duration === Infinity || isNaN(audio.duration)) {
+        audio.currentTime = 1e101;
+        const onTimeUpdate = () => {
+          audio.currentTime = 0;
+          audio.removeEventListener("timeupdate", onTimeUpdate);
+        };
+        audio.addEventListener("timeupdate", onTimeUpdate);
+      }
+    };
+
+    audio.addEventListener("loadedmetadata", fixDuration);
+    return () => audio.removeEventListener("loadedmetadata", fixDuration);
+  }, [src]);
+
+  return (
+    <audio
+      ref={audioRef}
+      controls
+      src={src}
+      className="max-w-full"
+      style={{ maxWidth: "100%" }}
+    />
+  );
+}
+
 function MessagesContent() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
@@ -21,11 +54,19 @@ function MessagesContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(Array(28).fill(4));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const discardRef = useRef(false);
 
   // refs so the realtime subscription always sees latest values without re-subscribing
   const selectedConvRef = useRef<string | null>(null);
@@ -110,7 +151,6 @@ function MessagesContent() {
             incoming.from_user_id === currentUserId || incoming.to_user_id === currentUserId;
           if (!involvesMe) return;
 
-          // If this message belongs to the currently open chat, append it (dedupe by id)
           if (incoming.conversation_id === selectedConvRef.current) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === incoming.id)) return prev;
@@ -118,8 +158,6 @@ function MessagesContent() {
             });
           }
 
-          // Refresh conversation list (updates preview text, ordering, unread badge,
-          // and adds brand-new conversations that just appeared for this user)
           getConversations(currentUserId).then(setConversations).catch((err) => {
             console.error("Failed to refresh conversations:", err);
           });
@@ -152,7 +190,6 @@ function MessagesContent() {
       setError("Unable to send message. Please try again.");
       setNewMessage(content);
     }
-    // No manual setMessages here — the realtime subscription above will add it once.
 
     setSending(false);
   };
@@ -178,7 +215,6 @@ function MessagesContent() {
       if (!ok) {
         setError("Unable to send image.");
       }
-      // realtime subscription handles adding it to the UI
     } catch (err) {
       console.error("Image upload error:", err);
       setError("Failed to upload image.");
@@ -188,16 +224,57 @@ function MessagesContent() {
     setSending(false);
   };
 
+  const cleanupRecordingVisuals = () => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (audioContextRef.current) audioContextRef.current.close();
+    animationFrameRef.current = null;
+    timerIntervalRef.current = null;
+    audioContextRef.current = null;
+    setWaveform(Array(28).fill(4));
+    setRecordingSeconds(0);
+  };
+
   const startRecording = async () => {
+    if (isRecording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       chunksRef.current = [];
+      discardRef.current = false;
+
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const level = Math.max(4, Math.min(32, Math.round((avg / 255) * 32)));
+        setWaveform((prev) => [...prev.slice(1), level]);
+        animationFrameRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+
+      setRecordingSeconds(0);
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
 
       recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
       recorder.onstop = async () => {
+        const durationMs = Date.now() - recordingStartTimeRef.current;
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         stream.getTracks().forEach((track) => track.stop());
+
+        if (discardRef.current || durationMs < 700) {
+          return;
+        }
 
         if (!user || !selectedConv) return;
         const otherUserId = conversations.find((c) => c.conversation_id === selectedConv)?.other_user_id;
@@ -216,7 +293,6 @@ function MessagesContent() {
           if (!ok) {
             setError("Unable to send voice message.");
           }
-          // realtime subscription handles adding it to the UI
         } catch (err) {
           console.error("Voice upload error:", err);
           setError("Failed to upload voice message.");
@@ -225,6 +301,7 @@ function MessagesContent() {
       };
 
       mediaRecorderRef.current = recorder;
+      recordingStartTimeRef.current = Date.now();
       recorder.start();
       setIsRecording(true);
     } catch (err) {
@@ -233,9 +310,31 @@ function MessagesContent() {
     }
   };
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+  const stopRecording = (discard = false) => {
+    discardRef.current = discard;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    cleanupRecordingVisuals();
     setIsRecording(false);
+  };
+
+  const handleMicClick = () => {
+    if (isRecording) {
+      stopRecording(false);
+    } else {
+      startRecording();
+    }
+  };
+
+  const handleCancelRecording = () => {
+    stopRecording(true);
+  };
+
+  const formatRecordingTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   const handleConversationSelect = (conversationId: string) => {
@@ -390,12 +489,7 @@ function MessagesContent() {
                               />
                             ) : null}
                             {msg.media_type === "voice" && msg.media_url ? (
-                              <audio
-                                controls
-                                src={msg.media_url}
-                                className="max-w-full"
-                                style={{ maxWidth: "100%" }}
-                              />
+                              <AudioPlayer src={msg.media_url} />
                             ) : null}
                             {(!msg.media_type || msg.media_type === "text") && msg.content ? (
                               <p className="text-sm leading-relaxed break-words">{msg.content}</p>
@@ -419,59 +513,91 @@ function MessagesContent() {
                 </div>
 
                 {/* Input Area */}
-                <div className="flex items-end gap-2 border-t border-slate-100 bg-white p-3 sm:p-4">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-shrink-0 rounded-full border border-slate-300 p-2.5 text-slate-500 transition hover:bg-slate-50 hover:border-slate-400"
-                    type="button"
-                    aria-label="Attach image"
-                    title="Attach image"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={handleImagePick}
-                  />
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSend())}
-                    placeholder="Type a message..."
-                    className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                  />
-                  <button
-                    onMouseDown={startRecording}
-                    onMouseUp={stopRecording}
-                    onMouseLeave={stopRecording}
-                    type="button"
-                    className={`flex-shrink-0 rounded-full p-2.5 transition ${
-                      isRecording
-                        ? "bg-red-500 text-white animate-pulse"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    }`}
-                    aria-label="Hold to record voice message"
-                    title="Hold to record voice message"
-                  >
-                    <Mic className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleSend}
-                    disabled={sending || !newMessage.trim()}
-                    className="flex-shrink-0 rounded-full bg-blue-600 p-2.5 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="Send message"
-                  >
-                    {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
+                {isRecording ? (
+                  <div className="flex items-center gap-2 border-t border-slate-100 bg-white p-3 sm:p-4">
+                    <button
+                      onClick={handleCancelRecording}
+                      type="button"
+                      className="flex-shrink-0 rounded-full p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                      aria-label="Cancel recording"
+                      title="Cancel recording"
+                    >
+                      <span className="text-xl leading-none">×</span>
+                    </button>
+
+                    <div className="flex-1 flex items-center gap-1 h-9 px-3">
+                      {waveform.map((level, idx) => (
+                        <div
+                          key={idx}
+                          className="flex-1 bg-red-400 rounded-full transition-all duration-75"
+                          style={{ height: `${level}px`, minWidth: "2px" }}
+                        />
+                      ))}
+                    </div>
+
+                    <span className="flex-shrink-0 text-xs font-medium text-slate-500 tabular-nums">
+                      {formatRecordingTime(recordingSeconds)}
+                    </span>
+
+                    <button
+                      onClick={() => stopRecording(false)}
+                      type="button"
+                      className="flex-shrink-0 rounded-full bg-blue-600 p-2.5 text-white hover:bg-blue-700 transition"
+                      aria-label="Send voice message"
+                      title="Send voice message"
+                    >
                       <Send className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-end gap-2 border-t border-slate-100 bg-white p-3 sm:p-4">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-shrink-0 rounded-full border border-slate-300 p-2.5 text-slate-500 transition hover:bg-slate-50 hover:border-slate-400"
+                      type="button"
+                      aria-label="Attach image"
+                      title="Attach image"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handleImagePick}
+                    />
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSend())}
+                      placeholder="Type a message..."
+                      className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    />
+                    <button
+                      onClick={handleMicClick}
+                      type="button"
+                      className="flex-shrink-0 rounded-full p-2.5 bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+                      aria-label="Start recording"
+                      title="Click to start recording"
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleSend}
+                      disabled={sending || !newMessage.trim()}
+                      className="flex-shrink-0 rounded-full bg-blue-600 p-2.5 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Send message"
+                    >
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center text-slate-500">

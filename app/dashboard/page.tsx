@@ -76,9 +76,7 @@ export default function Dashboard() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <Link href="/dashboard" className="group flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold">
-                FT
-              </div>
+              <img src="/logo.png" alt="FindTeamo" className="h-8 w-8 object-contain" />
               <span className="text-xl sm:text-2xl font-bold text-slate-950 group-hover:text-blue-600 transition">
                 FindTeamo
               </span>
