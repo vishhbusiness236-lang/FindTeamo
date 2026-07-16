@@ -345,12 +345,17 @@ export async function getDiscoveryProfiles(userId: string, limit: number = 10): 
 }
 
 export async function getMatches(userId: string): Promise<ProfileWithDetails[]> {
-  const { data: userLikes } = await supabase.from("connections").select("to_user_id").eq("from_user_id", userId).eq("status", "liked");
-  const { data: userLikedBy } = await supabase.from("connections").select("from_user_id").eq("to_user_id", userId).eq("status", "liked");
+  const [{ data: userLikes }, { data: userLikedBy }] = await Promise.all([
+    supabase.from("connections").select("to_user_id").eq("from_user_id", userId).eq("status", "liked"),
+    supabase.from("connections").select("from_user_id").eq("to_user_id", userId).eq("status", "liked"),
+  ]);
+
   const userLikeIds = userLikes?.map((c) => c.to_user_id) || [];
   const userLikedByIds = userLikedBy?.map((c) => c.from_user_id) || [];
   const matchIds = userLikeIds.filter((id) => userLikedByIds.includes(id));
+
   if (matchIds.length === 0) return [];
+
   const { data: profiles } = await supabase.from("profiles").select("*").in("id", matchIds);
   return enrichProfilesWithDetails(profiles || []);
 }

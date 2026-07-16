@@ -21,31 +21,33 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      if (!user) return;
+  const loadDashboard = async () => {
+    if (!user) return;
 
-      try {
-        setError(null);
-        const userProfile = await getProfile(user.id);
-        setProfile(userProfile);
+    try {
+      setError(null);
+      const [userProfile, matches, favorites] = await Promise.all([
+        getProfile(user.id),
+        getMatches(user.id),
+        getFavorites(user.id),
+      ]);
 
-        const matches = await getMatches(user.id);
-        const favorites = await getFavorites(user.id);
-        setStats({
-          matches: matches.length,
-          favorites: favorites.length,
-          profileViews: 0,
-          likesSent: 0,
-        });
-      } catch (err) {
-        console.error("Dashboard error:", err);
-        setError("Failed to load dashboard data.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadDashboard();
-  }, [user]);
+      setProfile(userProfile);
+      setStats({
+        matches: matches.length,
+        favorites: favorites.length,
+        profileViews: 0,
+        likesSent: 0,
+      });
+    } catch (err) {
+      console.error("Dashboard error:", err);
+      setError("Failed to load dashboard data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  loadDashboard();
+}, [user]);
 
   const handleLogout = async () => {
     const { supabase } = await import("@/lib/supabase");
