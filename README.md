@@ -1,101 +1,84 @@
 # FindTeamo
 
-A swipe based teammate matching platform built specifically for hackers, builders, and founders to find project partners based on overlapping skills, project goals, and availability.
+Swipe based app for finding hackathon teammates and cofounders. Built it because I was sick of the last-minute "anyone free to join my team.??" panic in Discord before every hackathon.
 
-## Why I Built This (The Story)
-Having participated in over 16 hackathons, I've faced the teammate struggle firsthand. Almost every major hackathon enforces a strict minimum rule of 2-4 members per team. Watching solo developers with incredible ideas get disqualified or forced into random, mismatched teams because of rushed Discord or Slack pitches is incredibly frustarting.
+## Why
 
-FindTeamo solves this by bringing a Tinder like discovery interface to hackathons and startup building. Instead of scrolling through text heavy spam channels, users can quickly swipe through profiles, match based on mutual interest, and instantly know if their skills align.
+I have done 16+ hackathons. Every single one has a minimum team size rule, and every single time there's a mad scramble in the last hour or two before deadline trying to find teammates. I've seen genuinely talented solo devs get stuck with nobody, or thrown into a random team that doesn't even overlap on skills, just because there was no real way to filter for that.
 
-## Core Features
-* **Tinder Style Discovery Cards:** Fast swiping mechanism to pass or like potential teammates.
-* **Smart Mutual Matching:** Connections are only established when both developers swipe 'liked' on each other.
-* **AI Powered Reliability Meter:** Analyzes profile completeness and chat responsivness to dynamically calculate a teammate's commitment score, helping you filter out inactive builders.
-* **Granular Profile Tags:** Profile setups that filter and display users based on technical skills, project goals (SaaS, Hackathon, Web3), and weekly availability hours.
-* **Google OAuth Authentication:** Fast and secure onboarding using Supabase Auth.
-* **In App Messaging:** Once matched, chat directly inside the app with text, image, and voice message support.
+Same story with finding a cofounder honestly. You just get pinged by randoms and have zero idea if their goals or commitment level actually match yours until weeks in, and at last they just waste your time.
 
-## Tech Stack
-* **Frontend:** Next.js (App Router) + React
-* **Styling:** Tailwind CSS
-* **Backend/Database:** Supabase (PostgreSQL, Auth, Realtime, Storage)
-* **Hosting:** Vercel
+So instead of dealing with that again I just built the thing I wish existed. Swipe on profiles, match on actual shared skills/goals, chat once you match. That's it.
 
-## Demo
+I'm 15 and been building solo for like a year and a bit now (Verba, CareAlong, Lyrova, Smriti before this one) but this is the first thing I've taken all the way to something real — actual auth, a real database, live chat, deployed and working.
 
-Live: (add your vercel.app url here after deploy)
+## What it does
+
+- Make a profile - skills, what you're looking for (hackathon squad / cofounder / startup), how many hours a week you can put in
+- Discover page shows other profiles as swipeable cards, sorted by a match score I calculate off shared skills/goals/interests/experience/hours
+- Like or skip. Both liked each other = match
+- Once matched you can message inside the app — text, images, voice notes, all live
+
+## Tech stack
+
+- Next.js (App Router), React, Tailwind
+- Supabase — Postgres, Auth (Google OAuth), Realtime, Storage
+- Hosted on Vercel
 
 ## Screenshots
 
-<!-- add 1-2 real screenshots here, see instructions below -->
-<!-- ![Discover page](./screenshots/discover.png) -->
-<!-- ![Match screen](./screenshots/match.png) -->
+![Dashboard](./screenshots/dashboard.png)
+![Matches page](./screenshots/matches.png)
+![Messages page](./screenshots/messages.png)
 
----
+## Demo
 
-## Local Setup Guide
+Live: [findteamo.vercel.app](https://findteamo.vercel.app)
 
-### 1. Clone & Install
+## Running it locally
+
 ```bash
 git clone https://github.com/vishhbusiness236-lang/FindTeamo.git
 cd FindTeamo
 npm install
 ```
-
-### 2. Environment Variables Configuration
-Create a `.env.local` file in the root directory of your project and populate it with your Supabase credentials:
-
+Add a `.env.local`:
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=your_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 ```
 
-### 3. Database Schema Setup
-Navigate to your Supabase Dashboard -> SQL Editor.
 
-Initialize your database tables by running the setup queries for the following relational tables:
-
-* `profiles` (User core data)
-* `skills` (M2M technical tags)
-* `goals` (Project target indicators)
-* `interests` (Domain focuses)
-* `connections` (Swiping states tracking)
-* `conversations` / `messages` (In app chat)
-
-### 4. Run the Development Server
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser to view the local instance.
+## Bugs I actually got stuck on
 
-## Database & Architecture Notes
-The core matching engine relies on a relational schema handling complex many to many relationships:
+The messaging RLS took me almost a full day. Kept getting "new row violates row-level security policy" on three different tables one after another - conversations, then messages, then the storage bucket for chat media. Every time I'd fix one, the next insert would fail on a different table. Ended up just relaxing the insert policies to `authenticated` + `true` for now, want to tighten those up properly later.
 
-* Each profile row links dynamically to multiple relational tables (skills, goals, interests).
-* The `connections` table tracks swipes with three definitive states: liked, rejected, or matched.
+Also had messages showing up twice in the chat for a while. Turned out I was adding the message to local state right after sending it and the realtime subscription was adding it again when the insert event fired. Took embarrassingly long to notice both were doing the same job. Fixed by dropping the local update completely and letting the realtime subscription be the only thing that touches the messages list.
 
-### Development Challenges Overcome
-**Schema Cache Syncing (PGRST204):** Encountered PostgREST schema cache mismatch errors during database modifications. Resolved by syncronizing Next.js database payloads and ensuring precise table typing without forwarding unmapped UI fields (like standalone local age states) directly into Postgres rows.
+There was also a random 404 on the conversations API route that turned out to just be a stale Turbopack cache, not an actual code problem. Cleared `.next` and it was fine. Wasted like 40 minutes on that before realizing.
 
-**Unique Constraint Handling (PostgreSQL Error 23505):** Faced unexpected database crashes when users re-swiped or refreshed states on profiles they had already skipped. Swapped out standard `.insert()` operations in favor of strict atomic `.upsert()` chains using unique target combinations (`from_user_id`, `to_user_id`) to smoothly overwrite outdated relationship states instead of throwing duplication errors.
+## Routes
 
-## Application Routes
-* `/` - Landing Page
-* `/login` - Google Auth gate
-* `/dashboard` - Main control panel & profile completness tracker
-* `/profile` - Technical tags management & availability setup
-* `/discover` - Swiping engine for teammate matching
-* `/matches` - View successful mutual connections
-* `/messages` - Chat with matched teammates
+- `/` — landing
+- `/login` — Google OAuth
+- `/dashboard` — home, profile completion tracker
+- `/profile` — edit skills/goals/availability
+- `/discover` — swipe and match
+- `/matches` — your mutual matches
+- `/messages` — chat with matches
 
-## Future Roadmap
-* **Advanced Skill Filtering:** Ability to filter the discovery stack strictly by high priority stacks (e.g., searching specifically for a Rust or Solidity backend dev).
-* **Reputation System:** Rate teammates after a hackathon ends.
+## What's next
 
-## Built for
+- Filter discovery by specific tech stack instead of just general skill tags
+- Some kind of rating/reputation thing after a hackathon ends, so people know who's actually reliable
+- Maybe I`ll try to scale it and launch it. I believe that it could turn into a successful startup.
 
-This project is built and shipped for #horizons.
+## Built for #horizons
 
 ## License
+
 MIT
