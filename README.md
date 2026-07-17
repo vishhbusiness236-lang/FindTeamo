@@ -77,7 +77,7 @@ There was also a random 404 on the conversations API route that turned out to ju
 - Some kind of rating/reputation thing after a hackathon ends, so people know who's actually reliable
 - Maybe I`ll try to scale it and launch it. I believe that it could turn into a successful startup.
 
-## Built for #horizons
+
 
 ## License
 
