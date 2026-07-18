@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { OnboardingLayout } from "@/components/onboarding-layout";
 import { useAuth } from "@/lib/use-auth";
-import { uploadAvatar } from "@/lib/db";
+import { uploadAvatar, addSkill, addGoal, addInterest } from "@/lib/db";
 import {
   OnboardingStep1,
   OnboardingStep2,
@@ -101,27 +101,31 @@ export default function OnboardingPage() {
     setIsSaving(true);
     try {
       const { supabase } = await import("@/lib/supabase");
+
       const { error } = await supabase
         .from("profiles")
         .update({
           full_name: formData.full_name,
           bio: formData.bio,
           avatar_url: formData.avatar_url,
-          role: formData.role,
-          skills: formData.skills,
-          goals: formData.goals,
-          interests: formData.interests,
-          experience_level: formData.experience_level,
-          availability_hours_per_week: formData.availability_hours_per_week,
-          age: formData.age,
+          experience_level: formData.experience_level.toLowerCase(),
+          hours_per_week: formData.availability_hours_per_week,
+          onboarding_completed: true,
         })
         .eq("id", user.id);
 
       if (error) {
-        console.error("Error saving profile:", error);
-        alert("Failed to save profile. Please try again.");
+        console.error("Error saving profile:", error.message, error.details, error.hint, error.code);
+        alert(`Failed to save profile: ${error.message || "Unknown error"}`);
         return;
       }
+
+      // Save skills, goals, interests into their own tables
+      await Promise.all([
+        ...formData.skills.map((skill) => addSkill(user.id, skill, "intermediate")),
+        ...formData.goals.map((goal) => addGoal(user.id, goal)),
+        ...formData.interests.map((interest) => addInterest(user.id, interest)),
+      ]);
 
       router.push("/dashboard");
     } catch (error) {

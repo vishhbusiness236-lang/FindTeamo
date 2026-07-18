@@ -54,7 +54,10 @@ export const OnboardingStep1: React.FC<OnboardingStep1Props> = ({
                 disabled={isUploading}
                 className="hidden"
               />
-              <button className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all px-4 py-2.5 text-base bg-slate-100 text-slate-900 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all px-4 py-2.5 text-base bg-slate-100 text-slate-900 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
                 <Upload className="h-4 w-4" />
                 {isUploading ? "Uploading..." : "Upload Photo"}
               </button>
@@ -146,6 +149,7 @@ export const OnboardingStep2: React.FC<OnboardingStep2Props> = ({ data, onChange
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {ROLE_OPTIONS.map((role) => (
             <button
+              type="button"
               key={role}
               onClick={() => onChange({ role })}
               className={`rounded-lg border-2 px-4 py-3 font-medium transition-all ${
@@ -183,7 +187,7 @@ export const OnboardingStep2: React.FC<OnboardingStep2Props> = ({ data, onChange
             onChange={(e) => setCustomSkill(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && addCustomSkill()}
           />
-          <Button variant="secondary" onClick={addCustomSkill}>
+          <Button type="button" variant="secondary" onClick={addCustomSkill}>
             Add
           </Button>
         </div>
@@ -191,6 +195,7 @@ export const OnboardingStep2: React.FC<OnboardingStep2Props> = ({ data, onChange
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {SKILL_OPTIONS.map((skill) => (
             <button
+              type="button"
               key={skill}
               onClick={() => toggleSkill(skill)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
@@ -265,6 +270,7 @@ export const OnboardingStep3: React.FC<OnboardingStep3Props> = ({ data, onChange
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {GOAL_OPTIONS.map((goal) => (
             <button
+              type="button"
               key={goal}
               onClick={() => toggleGoal(goal)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
@@ -297,6 +303,7 @@ export const OnboardingStep3: React.FC<OnboardingStep3Props> = ({ data, onChange
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {INTEREST_OPTIONS.map((interest) => (
             <button
+              type="button"
               key={interest}
               onClick={() => toggleInterest(interest)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
@@ -334,6 +341,7 @@ export const OnboardingStep4: React.FC<OnboardingStep4Props> = ({ data, onChange
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {["Beginner", "Intermediate", "Advanced"].map((level) => (
             <button
+              type="button"
               key={level}
               onClick={() => onChange({ experience_level: level })}
               className={`rounded-lg border-2 px-4 py-4 font-medium transition-all text-center ${
