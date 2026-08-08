@@ -1,83 +1,63 @@
 # FindTeamo
 
-Swipe based app for finding hackathon teammates and cofounders. Built it because I was sick of the last-minute "anyone free to join my team.??" panic in Discord before every hackathon.
+Basically tinder but for finding hackathon teammates/cofounders. made it cause im tired of that last minute panic where everyone is spamming discord asking if anyone free to join their team, right before every hackathon starts
 
 ## Why
 
-I have done 16+ hackathons. Every single one has a minimum team size rule, and every single time there's a mad scramble in the last hour or two before deadline trying to find teammates. I've seen genuinely talented solo devs get stuck with nobody, or thrown into a random team that doesn't even overlap on skills, just because there was no real way to filter for that.
+Done 16+ hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or thrown in a random team with zero skill overlap, just cause there was no way to filter.
 
-Same story with finding a cofounder honestly. You just get pinged by randoms and have zero idea if their goals or commitment level actually match yours until weeks in, and at last they just waste your time.
+Same thing with cofounders. Random people ping you and you have no idea if your goals match till weeks later, total waste of time.
 
-So instead of dealing with that again I just built the thing I wish existed. Swipe on profiles, match on actual shared skills/goals, chat once you match. That's it.
+So i just built the thing i wanted. Swipe on profiles, match on shared skills/goals, chat once matched. Thats basically it.
 
-I'm 15 and been building solo for like a year and a bit now (Verba, CareAlong, Lyrova, Smriti before this one) but this is the first thing I've taken all the way to something real — actual auth, a real database, live chat, deployed and working.
+Im 15, been building solo for a year (Verba, CareAlong, Lyrova, Smriti before this) but this is the first one i took all the way — real auth, real db, live chat, actually deployed.
 
 ## What it does
 
-- Make a profile - skills, what you're looking for (hackathon squad / cofounder / startup), how many hours a week you can put in
-- Discover page shows other profiles as swipeable cards, sorted by a match score I calculate off shared skills/goals/interests/experience/hours
-- Like or skip. Both liked each other = match
-- Once matched you can message inside the app — text, images, voice notes, all live
+- Make profile - skills, what your looking for (hackathon/cofounder/startup), hours per week
+- Discover page - swipeable cards, sorted by match score (skills/goals/hours etc)
+- Like or skip, both like = match
+- Chat inside app once matched - text, images, voice notes
 
-## Tech stack
+## Stack
 
-- Next.js (App Router), React, Tailwind
-- Supabase — Postgres, Auth (Google OAuth), Realtime, Storage
-- Hosted on Vercel
-
-## Screenshots
-
-![Dashboard](./screenshots/dashboard.png)
-![Matches page](./screenshots/matches.png)
-![Messages page](./screenshots/messages.png)
+Next.js, React, Tailwind, Supabase (auth + db + realtime + storage), Vercel
 
 ## Demo
 
-Live: [findteamo.vercel.app](https://findteamo.vercel.app)
+[findteamo.vercel.app](https://findteamo.vercel.app/)
 
-## Running it locally
+## Run locally
 
-```bash
+```
 git clone https://github.com/vishhbusiness236-lang/FindTeamo.git
 cd FindTeamo
 npm install
 ```
-Add a `.env.local`:
+
+`.env.local`:
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+NEXT_PUBLIC_SUPABASE_URL=your url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your key
 ```
 
-
-```bash
+```
 npm run dev
 ```
 
-## Bugs I actually got stuck on
+## Bugs i got stuck on
 
-The messaging RLS took me almost a full day. Kept getting "new row violates row-level security policy" on three different tables one after another - conversations, then messages, then the storage bucket for chat media. Every time I'd fix one, the next insert would fail on a different table. Ended up just relaxing the insert policies to `authenticated` + `true` for now, want to tighten those up properly later.
+RLS on messaging took almost a full day. kept getting "row violates row level security" on 3 diff tables one by one- conversations, messages, then storage bucket. fix one, next one breaks. ended up just loosening insert policy to authenticated for now, gotta fix that properly later lol.
 
-Also had messages showing up twice in the chat for a while. Turned out I was adding the message to local state right after sending it and the realtime subscription was adding it again when the insert event fired. Took embarrassingly long to notice both were doing the same job. Fixed by dropping the local update completely and letting the realtime subscription be the only thing that touches the messages list.
+Messages were showing twice for a bit. i was adding msg to local state right after sending AND realtime was adding it again on insert event. took me way to long to notice. fixed by removing local update, letting realtime handle it alone.
 
-There was also a random 404 on the conversations API route that turned out to just be a stale Turbopack cache, not an actual code problem. Cleared `.next` and it was fine. Wasted like 40 minutes on that before realizing.
+Also had random 404 on conversations route, turned out to be stale turbopack cache not actual bug. cleared .next and it worked. wasted 40 mins on that lol.
 
-## Routes
+## Whats next
 
-- `/` — landing
-- `/login` — Google OAuth
-- `/dashboard` — home, profile completion tracker
-- `/profile` — edit skills/goals/availability
-- `/discover` — swipe and match
-- `/matches` — your mutual matches
-- `/messages` — chat with matches
-
-## What's next
-
-- Filter discovery by specific tech stack instead of just general skill tags
-- Some kind of rating/reputation thing after a hackathon ends, so people know who's actually reliable
-- Maybe I`ll try to scale it and launch it. I believe that it could turn into a successful startup.
-
-
+- filter by tech stack not just general skills
+- some rating thing after hackathon so ppl know whos reliable
+- maybe scale this properly, think it could be a real startup
 
 ## License
 
