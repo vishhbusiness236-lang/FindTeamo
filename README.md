@@ -1,14 +1,14 @@
 # FindTeamo
 
-Basically tinder but for finding hackathon teammates/cofounders. made it cause im tired of that last minute panic where everyone is spamming discord asking if anyone free to join their team, right before every hackathon starts
+Basically tinder but for finding hackathon teammates/cofounders. made it cause im tired of that last minute panic where everyone is spamming discord asking if anyone free to join their team, right before every hackathon starts.The thing i hate the most is when they leaves you about 1-2days before hackathon starts
 
 <img width="1917" height="901" alt="Screenshot 2026-08-08 130604" src="https://github.com/user-attachments/assets/8c2c95ee-ff59-48ef-87a2-d52902852b6e" />
 
 ## Why
 
-Done 16+ hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or thrown in a random team with zero skill overlap, just cause there was no way to filter.
+Done 16+ hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or going in a random team with zero skill overlap, just cause there was no way to filter.
 
-Same thing with cofounders. Random people ping you and you have no idea if your goals match till weeks later, total waste of time.
+Same thing with cofounders. Random people ping you and you have no idea if your goals match till weeks later which is a total waste of time.
 
 So i just built the thing i wanted. Swipe on profiles, match on shared skills/goals, chat once matched. Thats basically it.
 
@@ -58,7 +58,7 @@ RLS on messaging took almost a full day. kept getting (row violates row levl sec
 
 Messages were showing twice for a bit. i was adding msg to local state right after sending and realtime was adding it again on insert event. took me way to long to notice. fixed by removing local update, letting realtime handle it alone.
 
-Also had random 404 on conversations route, turned out to be stale turbopack cache not actual bug. cleared .next and it worked. wasted 40 mins on that lol.
+I also had random 404 on conversations route, turned out to be stale turbopack cache not actually big bug. cleared .next and it worked. wasted 40 mins on that lol.
 
 ## Whats next
 
