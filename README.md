@@ -12,13 +12,13 @@ Same thing with cofounders. Random people ping you and you have no idea if your 
 
 So i just built the thing i wanted. Swipe on profiles, match on shared skills/goals, chat once matched. Thats basically it.
 
-Im 15, been building solo for a year (Verba, CareAlong, Lyrova, Smriti before this) but this is the first one i took all the way — real auth, real db, live chat, actually deployed.
+Im 15, been building app for more than a year (some of them are Verba, CareAlong, lyrova, smriti) but this is the first one i took all the way- real auth, real db, live chat, actually deployed.
 
 ## What it does
 
 - Make profile - skills, what your looking for (hackathon/cofounder/startup), hours per week
 - Discover page - swipeable cards, sorted by match score (skills/goals/hours etc)
-- Like or skip, both like = match
+- Like or skip, both like means match
 - Chat inside app once matched - text, images, voice notes
 - 
 <img width="1917" height="903" alt="Screenshot 2026-08-08 130625" src="https://github.com/user-attachments/assets/d11d0581-e4b6-44b1-a90b-fad06d4f5e02" />
@@ -54,9 +54,9 @@ npm run dev
 
 ## Bugs i got stuck on
 
-RLS on messaging took almost a full day. kept getting "row violates row level security" on 3 diff tables one by one- conversations, messages, then storage bucket. fix one, next one breaks. ended up just loosening insert policy to authenticated for now, gotta fix that properly later lol.
+RLS on messaging took almost a full day. kept getting (row violates row levl security) on 3 diff tables one by one- conversations, messages, then storage bucket. fix one, next one breaks. ended up just loosening insert policy to authenticated for now, gotta fix that properly later lol.
 
-Messages were showing twice for a bit. i was adding msg to local state right after sending AND realtime was adding it again on insert event. took me way to long to notice. fixed by removing local update, letting realtime handle it alone.
+Messages were showing twice for a bit. i was adding msg to local state right after sending and realtime was adding it again on insert event. took me way to long to notice. fixed by removing local update, letting realtime handle it alone.
 
 Also had random 404 on conversations route, turned out to be stale turbopack cache not actual bug. cleared .next and it worked. wasted 40 mins on that lol.
 
