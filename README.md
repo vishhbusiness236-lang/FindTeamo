@@ -2,6 +2,8 @@
 
 Basically tinder but for finding hackathon teammates/cofounders. made it cause im tired of that last minute panic where everyone is spamming discord asking if anyone free to join their team, right before every hackathon starts
 
+<img width="1917" height="901" alt="Screenshot 2026-08-08 130604" src="https://github.com/user-attachments/assets/8c2c95ee-ff59-48ef-87a2-d52902852b6e" />
+
 ## Why
 
 Done 16+ hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or thrown in a random team with zero skill overlap, just cause there was no way to filter.
@@ -18,6 +20,9 @@ Im 15, been building solo for a year (Verba, CareAlong, Lyrova, Smriti before th
 - Discover page - swipeable cards, sorted by match score (skills/goals/hours etc)
 - Like or skip, both like = match
 - Chat inside app once matched - text, images, voice notes
+- 
+<img width="1917" height="903" alt="Screenshot 2026-08-08 130625" src="https://github.com/user-attachments/assets/d11d0581-e4b6-44b1-a90b-fad06d4f5e02" />
+
 
 ## Stack
 
@@ -26,6 +31,8 @@ Next.js, React, Tailwind, Supabase (auth + db + realtime + storage), Vercel
 ## Demo
 
 [findteamo.vercel.app](https://findteamo.vercel.app/)
+
+<img width="1913" height="892" alt="Screenshot 2026-08-08 130643" src="https://github.com/user-attachments/assets/deb2abc4-1acd-483f-9bdc-635ccf0a45c7" />
 
 ## Run locally
 
