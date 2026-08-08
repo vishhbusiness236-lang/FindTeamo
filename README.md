@@ -6,7 +6,7 @@ Basically tinder but for finding hackathon teammates/cofounders. made it cause i
 
 ## Why
 
-Done 16+ hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or going in a random team with zero skill overlap, just cause there was no way to filter.
+I`ve done more than 16 hackathons. Every one has min team size rule and every time theres a scramble in the last hour to find people. Seen good devs get stuck with nobody or going in a random team with zero skill overlap, just cause there was no way to filter.
 
 Same thing with cofounders. Random people ping you and you have no idea if your goals match till weeks later which is a total waste of time.
 
