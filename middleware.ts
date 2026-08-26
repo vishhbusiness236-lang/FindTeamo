@@ -29,9 +29,15 @@ export async function middleware(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+  const isDemo = searchParams.get("demo") === "true";
 
   const protectedRoutes = ["/dashboard", "/profile", "/discover", "/matches", "/onboarding", "/messages", "/favorites"];
+
+  // Allow demo mode on /discover without login
+  if (pathname.startsWith("/discover") && isDemo) {
+    return response;
+  }
 
   // Not logged in trying to access a protected route
   if (protectedRoutes.some(route => pathname.startsWith(route)) && !session) {

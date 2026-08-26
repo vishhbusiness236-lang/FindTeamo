@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
 import type { User } from "@supabase/supabase-js";
 
-export function useAuth() {
+export function useAuth(options?: { skipRedirect?: boolean }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const skipRedirect = options?.skipRedirect ?? false;
 
   useEffect(() => {
     let mounted = true;
@@ -17,7 +18,9 @@ export function useAuth() {
       if (!mounted) return;
       if (!session?.user) {
         setLoading(false);
-        router.push("/login");
+        if (!skipRedirect) {
+          router.push("/login");
+        }
         return;
       }
       setUser(session.user);
@@ -29,7 +32,9 @@ export function useAuth() {
       if (!mounted) return;
       if (!session?.user) {
         setUser(null);
-        router.push("/login");
+        if (!skipRedirect) {
+          router.push("/login");
+        }
         return;
       }
       setUser(session.user);
@@ -40,7 +45,7 @@ export function useAuth() {
       mounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, skipRedirect]);
 
   return { user, loading };
 }

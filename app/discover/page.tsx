@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, PartyPopper } from "lucide-react";
 import type { ProfileWithDetails } from "@/lib/types";
@@ -10,9 +10,66 @@ import { useAuth } from "@/lib/use-auth";
 import { ProfileCardSkeleton } from "@/components/ui/skeleton";
 import { ProfileCard } from "@/components/project-card";
 
+const DEMO_PROFILES: ProfileWithDetails[] = [
+  {
+    id: "demo-1",
+    full_name: "Aarav Sharma",
+    bio: "Full-stack dev who loves shipping fast. Looking for a co-founder to build something ambitious.",
+    avatar_url: null,
+    experience_level: "intermediate",
+    hours_per_week: 15,
+    onboarding_completed: true,
+    created_at: new Date().toISOString(),
+    skills: [
+      { id: 1, profile_id: "demo-1", skill_name: "React", proficiency: "expert" },
+      { id: 2, profile_id: "demo-1", skill_name: "Node.js", proficiency: "intermediate" },
+    ],
+    interests: [],
+    goals: [],
+    matchScore: 87,
+  } as any,
+  {
+    id: "demo-2",
+    full_name: "Priya Nair",
+    bio: "Designer with a product mindset. Have shipped 3 apps to production, want to find technical co-founders.",
+    avatar_url: null,
+    experience_level: "expert",
+    hours_per_week: 20,
+    onboarding_completed: true,
+    created_at: new Date().toISOString(),
+    skills: [
+      { id: 3, profile_id: "demo-2", skill_name: "UI/UX", proficiency: "expert" },
+      { id: 4, profile_id: "demo-2", skill_name: "Figma", proficiency: "expert" },
+    ],
+    interests: [],
+    goals: [],
+    matchScore: 74,
+  } as any,
+  {
+    id: "demo-3",
+    full_name: "Kabir Mehta",
+    bio: "ML engineer exploring startup ideas in the AI agents space. Open to hackathons and long-term projects.",
+    avatar_url: null,
+    experience_level: "intermediate",
+    hours_per_week: 10,
+    onboarding_completed: true,
+    created_at: new Date().toISOString(),
+    skills: [
+      { id: 5, profile_id: "demo-3", skill_name: "Python", proficiency: "expert" },
+      { id: 6, profile_id: "demo-3", skill_name: "ML/AI", proficiency: "intermediate" },
+    ],
+    interests: [],
+    goals: [],
+    matchScore: 65,
+  } as any,
+];
+
 export default function DiscoverPage() {
-  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+  const { user, loading: authLoading } = useAuth({ skipRedirect: isDemo });
+
   const [profiles, setProfiles] = useState<ProfileWithDetails[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -20,6 +77,12 @@ export default function DiscoverPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
+    if (isDemo) {
+      setProfiles(DEMO_PROFILES);
+      setLoading(false);
+      return;
+    }
+
     const initDiscovery = async () => {
       if (!user) return;
 
@@ -52,11 +115,20 @@ export default function DiscoverPage() {
     };
 
     initDiscovery();
-  }, [user]);
+  }, [user, isDemo]);
 
   const isFavorited = (profileId: string) => favorites.includes(profileId);
 
   const handleFavorite = async () => {
+    if (isDemo) {
+      const profile = profiles[currentIndex];
+      if (isFavorited(profile.id)) {
+        setFavorites(favorites.filter(id => id !== profile.id));
+      } else {
+        setFavorites([...favorites, profile.id]);
+      }
+      return;
+    }
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
     try {
@@ -73,6 +145,10 @@ export default function DiscoverPage() {
   };
 
   const handleSkip = async () => {
+    if (isDemo) {
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
     try {
@@ -84,6 +160,10 @@ export default function DiscoverPage() {
   };
 
   const handleMessage = async () => {
+    if (isDemo) {
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
     if (!user || currentIndex >= profiles.length) return;
     const profile = profiles[currentIndex];
     try {
@@ -99,7 +179,7 @@ export default function DiscoverPage() {
     }
   };
 
-  if (authLoading || loading) {
+  if (!isDemo && (authLoading || loading)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-white">
         <div className="flex flex-col items-center gap-3">
@@ -109,11 +189,11 @@ export default function DiscoverPage() {
     );
   }
 
-  if (!user) {
+  if (!isDemo && !user) {
     return null;
   }
 
-  if (error) {
+  if (!isDemo && error) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
@@ -154,18 +234,20 @@ export default function DiscoverPage() {
         <div className="flex flex-col items-center justify-center py-20 px-4">
           <PartyPopper className="h-12 w-12 text-blue-500 mb-4" />
           <h1 className="text-3xl font-bold text-slate-950 text-center">
-            {profiles.length === 0 ? "No profiles yet" : "All caught up!"}
+            {isDemo ? "That's the full demo!" : profiles.length === 0 ? "No profiles yet" : "All caught up!"}
           </h1>
           <p className="mt-2 text-slate-600 text-center max-w-md">
-            {profiles.length === 0
+            {isDemo
+              ? "This is a preview using sample profiles. Sign up to discover real teammates."
+              : profiles.length === 0
               ? "Check back soon for more teammates to discover."
               : "You've reviewed all available profiles. More will appear soon!"}
           </p>
           <Link
-            href="/matches"
+            href={isDemo ? "/login" : "/matches"}
             className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 hover:shadow-lg"
           >
-            Check Your Matches
+            {isDemo ? "Sign Up" : "Check Your Matches"}
           </Link>
         </div>
       </main>
@@ -177,11 +259,16 @@ export default function DiscoverPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Header */}
+      {isDemo && (
+        <div className="bg-blue-600 text-white text-center text-sm py-2 px-4">
+          You&apos;re viewing a demo with sample profiles.{" "}
+          <Link href="/login" className="underline font-medium">Sign up</Link> to get started for real.
+        </div>
+      )}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-70 transition">
+            <Link href={isDemo ? "/" : "/dashboard"} className="flex items-center gap-2 hover:opacity-70 transition">
               <ArrowLeft className="h-5 w-5 text-slate-600" />
               <span className="text-xl sm:text-2xl font-bold text-slate-950">Discover</span>
             </Link>
@@ -191,7 +278,6 @@ export default function DiscoverPage() {
               <span>{profiles.length}</span>
             </div>
           </div>
-          {/* Progress Bar */}
           <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300 ease-out"
@@ -201,9 +287,7 @@ export default function DiscoverPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col items-center">
-        {/* Profile Card */}
         <div className="w-full max-w-md mb-8">
           <ProfileCard
             key={`${profile.id}-${currentIndex}`}
@@ -215,7 +299,6 @@ export default function DiscoverPage() {
           />
         </div>
 
-        {/* Info Text */}
         <div className="mt-2 text-center text-xs text-slate-500">
           <p>Swipe through profiles to find your perfect teammate</p>
         </div>
