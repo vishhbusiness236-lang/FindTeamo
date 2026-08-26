@@ -100,23 +100,19 @@ export default function OnboardingPage() {
 
     setIsSaving(true);
     try {
-      const { supabase } = await import("@/lib/supabase");
+      const { createProfile } = await import("@/lib/db");
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          bio: formData.bio,
-          avatar_url: formData.avatar_url,
-          experience_level: formData.experience_level.toLowerCase(),
-          hours_per_week: formData.availability_hours_per_week,
-          onboarding_completed: true,
-        })
-        .eq("id", user.id);
+      const newProfile = await createProfile(user.id, {
+        full_name: formData.full_name,
+        bio: formData.bio,
+        avatar_url: formData.avatar_url,
+        experience_level: formData.experience_level.toLowerCase(),
+        hours_per_week: formData.availability_hours_per_week,
+        onboarding_completed: true,
+      } as any);
 
-      if (error) {
-        console.error("Error saving profile:", error.message, error.details, error.hint, error.code);
-        alert(`Failed to save profile: ${error.message || "Unknown error"}`);
+      if (!newProfile) {
+        alert("Failed to save profile. Please try again.");
         return;
       }
 
