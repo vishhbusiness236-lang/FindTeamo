@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, PartyPopper } from "lucide-react";
@@ -64,7 +64,7 @@ const DEMO_PROFILES: ProfileWithDetails[] = [
   } as any,
 ];
 
-export default function DiscoverPage() {
+function DiscoverContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -304,5 +304,19 @@ export default function DiscoverPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-white">
+        <div className="flex flex-col items-center gap-3">
+          <ProfileCardSkeleton />
+        </div>
+      </main>
+    }>
+      <DiscoverContent />
+    </Suspense>
   );
 }
